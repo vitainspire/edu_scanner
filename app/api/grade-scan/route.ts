@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServerComponentClient } from "@/lib/supabase-server";
 
+// Allow up to 60 s on Vercel (Hobby: 60s max, Pro: 300s max)
+export const maxDuration = 60;
+
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 
 interface RateLimitEntry {

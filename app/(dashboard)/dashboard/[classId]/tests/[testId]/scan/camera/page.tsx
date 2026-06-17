@@ -502,26 +502,45 @@ export default function CameraPage() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Compress and resize image client-side before sending to the API.
+// Vercel serverless functions have a 4.5 MB body limit; raw phone photos can
+// be 3–10 MB. Downscaling to 1600 px wide at JPEG 80 % quality keeps most
+// answer-sheet photos under 500 KB while preserving OCR readability.
 function readFileAsBase64(file: File): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== "string") {
-        reject(new Error("Unexpected FileReader result type"));
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      const MAX_WIDTH = 1600;
+      const scale = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas 2D not available"));
         return;
       }
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
       const commaIdx = dataUrl.indexOf(",");
       if (commaIdx === -1) {
-        reject(new Error("Malformed data URL"));
+        reject(new Error("Malformed canvas data URL"));
         return;
       }
-      const header = dataUrl.slice(0, commaIdx);
-      const base64 = dataUrl.slice(commaIdx + 1);
-      const mimeType = header.replace("data:", "").replace(";base64", "") || "image/jpeg";
-      resolve({ base64, mimeType });
+      resolve({ base64: dataUrl.slice(commaIdx + 1), mimeType: "image/jpeg" });
     };
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Failed to load image for compression"));
+    };
+
+    img.src = objectUrl;
   });
 }
