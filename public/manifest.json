@@ -1,0 +1,21 @@
+{
+  "name": "EduScanner",
+  "short_name": "EduScanner",
+  "description": "Scan and grade student answer sheets with AI",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0d1b3e",
+  "theme_color": "#0d1b3e",
+  "categories": ["productivity", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
