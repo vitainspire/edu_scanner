@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Camera, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, Sparkles, ScanLine, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StudentRow {
@@ -24,6 +24,7 @@ interface Props {
 
 export function ScanProgressView({ classId, testId, classInfo, testInfo, pendingStudents, doneStudents }: Props) {
   const router = useRouter();
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     sessionStorage.setItem("scanContext", JSON.stringify({
@@ -49,6 +50,21 @@ export function ScanProgressView({ classId, testId, classInfo, testInfo, pending
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   const allDone = total > 0 && pendingStudents.length === 0;
 
+  // Filter by name or roll number
+  const q = query.trim().toLowerCase();
+  const filteredPending = q
+    ? pendingStudents.filter(
+        (s) => s.name.toLowerCase().includes(q) || String(s.roll_number).includes(q)
+      )
+    : pendingStudents;
+  const filteredDone = q
+    ? doneStudents.filter(
+        (s) => s.name.toLowerCase().includes(q) || String(s.roll_number).includes(q)
+      )
+    : doneStudents;
+
+  const noResults = q && filteredPending.length === 0 && filteredDone.length === 0;
+
   return (
     <div className="pb-safe">
 
@@ -60,13 +76,23 @@ export function ScanProgressView({ classId, testId, classInfo, testInfo, pending
           : "linear-gradient(145deg, #1e1b4b 0%, #312e81 50%, #1e3a8a 100%)"
         }}
       >
-        <Link
-          href={`/dashboard/${classId}/tests`}
-          className="inline-flex items-center gap-1.5 text-white/60 hover:text-white text-sm font-medium mb-4 transition-colors"
-        >
-          <ArrowLeft size={16} />
-          <span>Back</span>
-        </Link>
+        <div className="flex items-center justify-between mb-4">
+          <Link
+            href={`/dashboard/${classId}/tests`}
+            className="inline-flex items-center gap-1.5 text-white/60 hover:text-white text-sm font-medium transition-colors"
+          >
+            <ArrowLeft size={16} />
+            <span>Back</span>
+          </Link>
+
+          <Link
+            href={`/dashboard/${classId}/tests/${testId}/batch-scan`}
+            className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-black px-3 py-2 rounded-xl transition-colors active:scale-95"
+          >
+            <ScanLine size={15} />
+            Scan All
+          </Link>
+        </div>
 
         <p className="text-[10px] font-black tracking-[0.25em] uppercase text-indigo-300/70 mb-1">
           Grade {classInfo.grade} &middot; {classInfo.section} &middot; {classInfo.name}
@@ -111,26 +137,60 @@ export function ScanProgressView({ classId, testId, classInfo, testInfo, pending
         </div>
       </div>
 
+      {/* ── Search bar ─────────────────────────────────────────── */}
+      <div className="pt-4 pb-1">
+        <div className="relative">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="search"
+            inputMode="search"
+            placeholder="Search by name or roll number…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full pl-10 pr-10 py-3 rounded-2xl bg-white border border-gray-200 text-sm font-medium text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-200 text-gray-500 hover:bg-gray-300 transition-colors"
+              aria-label="Clear search"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ── Student sections ───────────────────────────────────── */}
-      <div className="pt-5 space-y-6">
+      <div className="pt-4 space-y-6">
+
+        {/* No results */}
+        {noResults && (
+          <div className="flex flex-col items-center py-12 gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+              <Search size={20} className="text-gray-300" />
+            </div>
+            <p className="text-sm font-semibold text-gray-400">No student found for &ldquo;{query}&rdquo;</p>
+          </div>
+        )}
 
         {/* Pending */}
-        {pendingStudents.length > 0 && (
+        {filteredPending.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-3 px-1">
               <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
               <p className="text-[11px] font-black tracking-[0.2em] uppercase text-gray-400">
-                Pending — {pendingStudents.length}
+                Pending — {filteredPending.length}{q && filteredPending.length !== pendingStudents.length ? ` of ${pendingStudents.length}` : ""}
               </p>
             </div>
             <ul className="space-y-2">
-              {pendingStudents.map((s) => (
+              {filteredPending.map((s) => (
                 <li key={s.id} className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 min-h-[64px]">
                   <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 text-xs font-black text-gray-500 tabular-nums">
                     {String(s.roll_number).padStart(2, "0")}
                   </div>
                   <span className="text-sm font-bold text-gray-800 flex-1 min-w-0 truncate">
-                    {s.name}
+                    {highlightMatch(s.name, q)}
                   </span>
                   <button
                     onClick={() => goToCamera(s.id, s.name)}
@@ -147,16 +207,16 @@ export function ScanProgressView({ classId, testId, classInfo, testInfo, pending
         )}
 
         {/* Done */}
-        {doneStudents.length > 0 && (
+        {filteredDone.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-3 px-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
               <p className="text-[11px] font-black tracking-[0.2em] uppercase text-emerald-600">
-                Done — {doneStudents.length}
+                Done — {filteredDone.length}{q && filteredDone.length !== doneStudents.length ? ` of ${doneStudents.length}` : ""}
               </p>
             </div>
             <ul className="space-y-2">
-              {doneStudents.map((s) => {
+              {filteredDone.map((s) => {
                 const pctScore = testInfo.total_marks > 0 ? (s.score ?? 0) / testInfo.total_marks : 0;
                 const scoreColor = pctScore >= 0.7 ? "text-emerald-600" : pctScore >= 0.4 ? "text-amber-600" : "text-red-500";
                 return (
@@ -165,7 +225,7 @@ export function ScanProgressView({ classId, testId, classInfo, testInfo, pending
                       {String(s.roll_number).padStart(2, "0")}
                     </div>
                     <span className="text-sm font-semibold text-gray-500 flex-1 min-w-0 truncate">
-                      {s.name}
+                      {highlightMatch(s.name, q)}
                     </span>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={cn("text-sm font-black tabular-nums", scoreColor)}>
@@ -182,5 +242,19 @@ export function ScanProgressView({ classId, testId, classInfo, testInfo, pending
         )}
       </div>
     </div>
+  );
+}
+
+// Highlight the matching part of a name in bold indigo
+function highlightMatch(name: string, query: string): React.ReactNode {
+  if (!query) return name;
+  const idx = name.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return name;
+  return (
+    <>
+      {name.slice(0, idx)}
+      <span className="text-indigo-600 font-black">{name.slice(idx, idx + query.length)}</span>
+      {name.slice(idx + query.length)}
+    </>
   );
 }
